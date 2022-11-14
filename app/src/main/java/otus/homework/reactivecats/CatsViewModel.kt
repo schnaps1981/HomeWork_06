@@ -13,7 +13,7 @@ import io.reactivex.schedulers.Schedulers
 import java.util.concurrent.TimeUnit
 
 class CatsViewModel(
-    catsService: CatsService,
+    private val catsService: CatsService,
     private val localCatFactsGenerator: LocalCatFactsGenerator,
     private val context: Context
 ) : ViewModel() {
@@ -22,10 +22,6 @@ class CatsViewModel(
     val catsLiveData: LiveData<Result> = _catsLiveData
 
     private val disposable = CompositeDisposable()
-
-    private val fetcher = catsService.getCatFact()
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
 
     private val subscriber = Consumer<Fact> { _catsLiveData.value = Success(it) }
 
@@ -36,20 +32,16 @@ class CatsViewModel(
     }
 
     init {
-        fetch()
-    }
-
-    private fun fetch() {
-        disposable.add(
-            fetcher.subscribe(subscriber, subscriberError)
-        )
+        getFacts()
     }
 
     private fun getFacts() {
         disposable.add(
             Observable.interval(2, TimeUnit.SECONDS)
-                .flatMap { fetcher }
+                .flatMap { catsService.getCatFact() }
                 .onErrorResumeNext(localCatFactsGenerator.generateCatFact())
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(subscriber, subscriberError)
         )
     }
